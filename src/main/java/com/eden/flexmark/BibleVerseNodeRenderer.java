@@ -11,7 +11,6 @@ import com.vladsch.flexmark.html.renderer.NodeRendererContext;
 import com.vladsch.flexmark.html.renderer.NodeRendererFactory;
 import com.vladsch.flexmark.html.renderer.NodeRenderingHandler;
 import com.vladsch.flexmark.util.options.DataHolder;
-import com.vladsch.flexmark.util.options.DataKey;
 import com.vladsch.flexmark.util.sequence.BasedSequence;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -40,60 +39,51 @@ public class BibleVerseNodeRenderer implements NodeRenderer {
         html.srcPos(sourceText.getStartOffset(), sourceText.getEndOffset()).tagLine("span", () -> {
             Eden eden = Eden.getInstance();
 
-            String ABS_ApiKey = options.get(new DataKey<>("ABS_ApiKey", (String) null));
             String output;
-            if(ABS_ApiKey != null) {
-                eden.config().putString("ABS_ApiKey", ABS_ApiKey);
-                String ABSRepository_selectedBibleId = options.get(new DataKey<>("ABSRepository_selectedBibleId", "eng-NASB"));
-                eden.config().putString("com.eden.americanbiblesociety.ABSRepository_selectedBibleId", ABSRepository_selectedBibleId);
 
-                eden.registerRepository(new ABSRepository());
-                ABSRepository repo = (ABSRepository) eden.getRepository(ABSRepository.class);
+            eden.registerRepository(new ABSRepository());
+            ABSRepository repo = (ABSRepository) eden.getRepository(ABSRepository.class);
 
-                Passage passage = repo.lookupVerse(node.getText().toString());
-                passage.setVerseFormatter(new VerseFormatter() {
-                    @Override
-                    public String onPreFormat(AbstractVerse abstractVerse) {
-                        return "“";
+            Passage passage = repo.lookupVerse(node.getText().toString());
+            passage.setVerseFormatter(new VerseFormatter() {
+                @Override
+                public String onPreFormat(AbstractVerse abstractVerse) {
+                    return "“";
+                }
+
+                @Override
+                public String onFormatVerseStart(int i) {
+                    return "";
+                }
+
+                @Override
+                public String onFormatText(String s) {
+                    Document doc = Jsoup.parse(s);
+                    doc.select("sup").remove();
+                    s = doc.text();
+
+                    if(s.startsWith("“")) {
+                        s = s.substring(1);
+                    }
+                    if(s.endsWith("”")) {
+                        s = s.substring(0, s.length() - 1);
                     }
 
-                    @Override
-                    public String onFormatVerseStart(int i) {
-                        return "";
-                    }
+                    return s;
+                }
 
-                    @Override
-                    public String onFormatText(String s) {
-                        Document doc = Jsoup.parse(s);
-                        doc.select("sup").remove();
-                        s = doc.text();
+                @Override
+                public String onFormatVerseEnd() {
+                    return " ";
+                }
 
-                        if(s.startsWith("“")) {
-                            s = s.substring(1);
-                        }
-                        if(s.endsWith("”")) {
-                            s = s.substring(0, s.length() - 1);
-                        }
+                @Override
+                public String onPostFormat() {
+                    return "”";
+                }
+            });
 
-                        return s;
-                    }
-
-                    @Override
-                    public String onFormatVerseEnd() {
-                        return " ";
-                    }
-
-                    @Override
-                    public String onPostFormat() {
-                        return "”";
-                    }
-                });
-
-                output = passage.getText().split("<br/><i>")[0] + " ~ " + passage.getReference().toString();
-            }
-            else {
-                output = node.getText().toString();
-            }
+            output = passage.getText().split("<br/><i>")[0] + " ~ " + passage.getReference().toString();
 
             html.raw(output);
         });

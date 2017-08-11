@@ -1,10 +1,9 @@
 package com.eden.flexmark;
 
+import com.caseyjbrooks.clog.Clog;
 import com.eden.Eden;
-import com.eden.americanbiblesociety.ABSRepository;
-import com.eden.bible.AbstractVerse;
 import com.eden.bible.Passage;
-import com.eden.interfaces.VerseFormatter;
+import com.eden.repositories.EdenRepository;
 import com.vladsch.flexmark.html.HtmlWriter;
 import com.vladsch.flexmark.html.renderer.NodeRenderer;
 import com.vladsch.flexmark.html.renderer.NodeRendererContext;
@@ -12,18 +11,23 @@ import com.vladsch.flexmark.html.renderer.NodeRendererFactory;
 import com.vladsch.flexmark.html.renderer.NodeRenderingHandler;
 import com.vladsch.flexmark.util.options.DataHolder;
 import com.vladsch.flexmark.util.sequence.BasedSequence;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 
 import java.util.HashSet;
 import java.util.Set;
 
 public class BibleVerseNodeRenderer implements NodeRenderer {
 
-    private DataHolder options;
+    private final Class<? extends EdenRepository> bibleRepository;
 
     public BibleVerseNodeRenderer(DataHolder options) {
-        this.options = options;
+        this.bibleRepository = options.get(BibleVerseExtension.BIBLE_REPOSITORY);
+
+        if(this.bibleRepository != null) {
+            Clog.v("Bible repository Class: {}", this.bibleRepository.toString());
+        }
+        else {
+            Clog.v("Bible repository Class: is null");
+        }
     }
 
     @Override
@@ -37,53 +41,31 @@ public class BibleVerseNodeRenderer implements NodeRenderer {
         final BasedSequence sourceText = context.getHtmlOptions().sourcePositionParagraphLines || node.getFirstChild() == null ? node.getChars() : node.getFirstChild().getChars();
 
         html.srcPos(sourceText.getStartOffset(), sourceText.getEndOffset()).tagLine("span", () -> {
-            Eden eden = Eden.getInstance();
+            String output = node.getText().toString();
 
-            String output;
-
-            eden.registerRepository(new ABSRepository());
-            ABSRepository repo = (ABSRepository) eden.getRepository(ABSRepository.class);
-
-            Passage passage = repo.lookupVerse(node.getText().toString());
-            passage.setVerseFormatter(new VerseFormatter() {
-                @Override
-                public String onPreFormat(AbstractVerse abstractVerse) {
-                    return "“";
-                }
-
-                @Override
-                public String onFormatVerseStart(int i) {
-                    return "";
-                }
-
-                @Override
-                public String onFormatText(String s) {
-                    Document doc = Jsoup.parse(s);
-                    doc.select("sup").remove();
-                    s = doc.text();
-
-                    if(s.startsWith("“")) {
-                        s = s.substring(1);
+            if(this.bibleRepository != null) {
+                Clog.v("Bible repository Class: is null");
+                Eden eden = Eden.getInstance();
+                EdenRepository repo = eden.getRepository(this.bibleRepository);
+                if(repo == null) {
+                    Clog.v("Did not have an existing Repository registered");
+                    try {
+                        eden.registerRepository(this.bibleRepository.newInstance());
+                        Clog.v("Successfully created and registered a repository");
+                        repo = eden.getRepository(this.bibleRepository);
                     }
-                    if(s.endsWith("”")) {
-                        s = s.substring(0, s.length() - 1);
+                    catch(Exception e) {
+                        e.printStackTrace();
+                        Clog.v("Failed to create and register a repository");
                     }
-
-                    return s;
                 }
 
-                @Override
-                public String onFormatVerseEnd() {
-                    return " ";
+                if(repo != null) {
+                    Clog.v("Repository exists");
+                    Passage passage = repo.lookupVerse(node.getText().toString());
+                    output = passage.getText() + " ~ " + passage.getReference().toString();
                 }
-
-                @Override
-                public String onPostFormat() {
-                    return "”";
-                }
-            });
-
-            output = passage.getText().split("<br/><i>")[0] + " ~ " + passage.getReference().toString();
+            }
 
             html.raw(output);
         });

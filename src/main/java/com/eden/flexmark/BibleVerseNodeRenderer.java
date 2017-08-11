@@ -1,6 +1,5 @@
 package com.eden.flexmark;
 
-import com.caseyjbrooks.clog.Clog;
 import com.eden.Eden;
 import com.eden.bible.Passage;
 import com.eden.repositories.EdenRepository;
@@ -21,13 +20,6 @@ public class BibleVerseNodeRenderer implements NodeRenderer {
 
     public BibleVerseNodeRenderer(DataHolder options) {
         this.bibleRepository = options.get(BibleVerseExtension.BIBLE_REPOSITORY);
-
-        if(this.bibleRepository != null) {
-            Clog.v("Bible repository Class: {}", this.bibleRepository.toString());
-        }
-        else {
-            Clog.v("Bible repository Class: is null");
-        }
     }
 
     @Override
@@ -44,24 +36,19 @@ public class BibleVerseNodeRenderer implements NodeRenderer {
             String output = node.getText().toString();
 
             if(this.bibleRepository != null) {
-                Clog.v("Bible repository Class: is null");
                 Eden eden = Eden.getInstance();
                 EdenRepository repo = eden.getRepository(this.bibleRepository);
                 if(repo == null) {
-                    Clog.v("Did not have an existing Repository registered");
                     try {
                         eden.registerRepository(this.bibleRepository.newInstance());
-                        Clog.v("Successfully created and registered a repository");
                         repo = eden.getRepository(this.bibleRepository);
                     }
                     catch(Exception e) {
                         e.printStackTrace();
-                        Clog.v("Failed to create and register a repository");
                     }
                 }
 
                 if(repo != null) {
-                    Clog.v("Repository exists");
                     Passage passage = repo.lookupVerse(node.getText().toString());
                     output = passage.getText() + " ~ " + passage.getReference().toString();
                 }
